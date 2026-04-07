@@ -1,0 +1,204 @@
+<html>
+  <head>
+    <title>Mapa Oficines</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, width=device-width" />
+    <style>
+      #map {
+        height: 100vh;
+        width: 100%;
+      } 
+    </style>
+  </head>
+  
+  <body>
+    <div id="map"></div>
+
+    <script>
+	
+	// Esperamos a que markerClusterer esté disponible antes de usarlo
+function waitForMarkerClusterer() {
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      if (window.markerClusterer && window.markerClusterer.MarkerClusterer) {
+        resolve(window.markerClusterer.MarkerClusterer);
+      } else {
+        setTimeout(check, 50);
+      }
+    };
+    check();
+  });
+}
+      async function initMap() {
+        let currentInfoWindow = null;
+        //const centre = { lat: 41.3851, lng: 2.1734 }; // barcelona
+		const centre = { lat: 41.8204, lng: 1.8676 }; // catalunya
+
+        const map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 9,
+          center: centre,
+        });
+
+        try {
+          const response = await fetch("oficines_full.json");
+          const data = await response.json();
+          console.log("Dades carregades:", data);
+
+          const markers = [];
+
+          if (google.maps.marker) {
+            data.content.forEach((oficina) => {
+              const { nomOficina, adreca, latitud, longitud, tipoOficina, idOficina } = oficina;
+
+              if (latitud && longitud) {
+                const position = {
+                  lat: parseFloat(latitud),
+                  lng: parseFloat(longitud),
+                };
+
+                let iconUrl;
+                let zi;
+
+                if (tipoOficina === "R") {
+                  iconUrl = "offices_marker-1-blue.png";
+                  zi = 2;
+                } else {
+                  iconUrl = "offices_marker-1.png";
+                  zi = 1;
+                }
+
+                const marker = new google.maps.Marker({
+                  map: map,
+                  position: position,
+                  title: nomOficina,
+                  zIndex: zi,
+                  icon: {
+                    url: iconUrl,
+                    //scaledSize: new google.maps.Size(28, 40),
+                    //anchor: new google.maps.Point(14, 40),
+                  },
+                  shape: {
+                    coords: [
+                      14, 8, 16, 9, 18, 11, 19, 14, 18, 17, 16, 19,
+                      14, 20, 12, 19, 10, 17, 9, 14, 10, 11, 12, 9
+                    ],
+                    type: 'poly'
+                  }
+                });
+
+                const infoHtml = `
+                  <div style="font-family: 'Open Sans', sans-serif; line-height: 1.4; max-width: 220px; font-size: 14px;">
+                    <b>Agència Tributària de Catalunya</b>
+                    <h3 style="margin: 0 0 5px 0; font-size: 18px;">${nomOficina}</h3>
+                    <p style="margin: 0 0 10px 0;">${adreca}</p>
+                    <button style="
+                      padding: 6px 10px;
+                      background-color: #106BC4;
+                      color: white;
+                      border: none;
+                      border-radius: 4px;
+                      cursor: pointer;
+                      margin-bottom: 5px;
+                      width: 100%;
+                    " onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}', '_blank')">
+                      Com arribar-hi?
+                    </button>
+                  </div>
+                `;
+
+                const infoWindow = new google.maps.InfoWindow({
+                  content: infoHtml,
+                });
+
+                marker.addListener("click", () => {
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  infoWindow.open(map, marker);
+                  currentInfoWindow = infoWindow;
+                });
+
+                markers.push(marker);
+              }
+            });
+
+            // Añadir los markers al clusterer usando la nueva versión
+//const { MarkerClusterer } = window.markerClusterer;
+const MarkerClusterer = await waitForMarkerClusterer();
+
+const maxZoom = 11;
+
+const clusterer = new MarkerClusterer({
+  map,
+  markers,
+  renderer: {
+    render: ({ count, position }) => new google.maps.Marker({
+      position,
+      label: { text: String(count), color: "white", fontSize: "24px" },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 24,
+        fillColor: "#106BC4",
+        fillOpacity: 0.9,
+        strokeWeight: 2,
+        strokeColor: "#fff",
+      },
+      zIndex: google.maps.Marker.MAX_ZINDEX + count,
+    }),
+  },
+});
+  
+   // Evento de clúster (con zoom limitado)
+          google.maps.event.addListener(clusterer, "clusterclick", (cluster) => {
+            console.log("🔵 Clic en clúster");
+            console.log("🧪 cluster:", cluster);
+
+            const bounds = new google.maps.LatLngBounds();
+
+            if (cluster.markers && cluster.markers.length > 0) {
+              cluster.markers.forEach(marker => {
+                bounds.extend(marker.getPosition());
+              });
+
+              console.log("➡️ Ejecutando fitBounds");
+              map.fitBounds(bounds);
+
+              google.maps.event.addListenerOnce(map, "idle", () => {
+                const currentZoom = map.getZoom();
+                console.log("🟢 Evento idle. Zoom actual:", currentZoom);
+
+                const maxZoom = 10;
+                if (currentZoom > maxZoom) {
+                  console.log(`🔴 Zoom demasiado alto (${currentZoom}) → Ajustando a ${maxZoom}`);
+                  map.setZoom(maxZoom);
+                } else {
+                  console.log("🟡 Zoom dentro del límite, no se ajusta");
+                }
+              });
+            } else {
+              console.warn("⚠️ El clúster no tiene marcadores.");
+            }
+          });
+			
+			// Limitar el nivel máximo de zoom (por ejemplo, a 15)
+ 
+
+          } else {
+            console.error("La libreria 'marker' no s'ha carregat");
+          }
+
+        } catch (error) {
+          console.error("Error al carregar el JSON:", error);
+        }
+      }
+    </script>
+
+   
+	 
+ <script async defer type="text/javascript" src="https://maps.google.com/maps/api/js?key=AIzaSyBdOe8iGYoxCHpgQKmaf4KYAOKVMn5rLcs&callback=initMap&libraries=marker"></script> 
+
+    <!-- MarkerClusterer -->
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+
+  </body>
+</html>
