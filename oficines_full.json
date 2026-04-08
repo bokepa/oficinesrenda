@@ -277,6 +277,18 @@
             "longitud": "0.8960318",
             "latitud": "42.1664558"
         }, {
+            "idOficina": "P5",
+            "adreca": "Avinguda del Pont, 13 (edifici Àries)",
+            "codiPostal": "25280",
+            "email": null,
+            "idCentro": "P5",
+            "municipi": "Solsona",
+            "nomOficina": "Oficina de Serveis Tributaris a Solsona",
+            "telefon": "973114284",
+            "tipoOficina": "P",
+            "longitud": "1.5208864",
+            "latitud": "41.9955919"
+        }, {
             "idOficina": "P6",
             "adreca": "Gran Via, 42",
             "codiPostal": "08600",
